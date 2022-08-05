@@ -10,7 +10,7 @@ project(fub_navigation)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
-  autominy_msgs
+#  autominy_msgs
   message_generation)
 
 ## System dependencies are found with CMake's conventions

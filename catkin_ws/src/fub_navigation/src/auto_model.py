@@ -2,7 +2,7 @@ import rospy
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseWithCovarianceStamped as PCS
 from std_msgs.msg import Int16
-from autominy_msgs.msg import NormalizedSteeringCommand, SpeedCommand
+#from autominy_msgs.msg import NormalizedSteeringCommand, SpeedCommand
 from sensor_msgs.msg import LaserScan, PointCloud
 
 def get_AutoModel(model, callbacks, fake_gps=False, car_id=7): 
@@ -34,7 +34,7 @@ class AutoModelMini():
         steer_deg = steering*90
         steering = steer_deg+90
         self.pub.publish(int(steering))
-
+"""
 class AutoMiny():
     def __init__(self,callbacks,model,fake_gps=False,car_id=7): 
         odom_callback = callbacks[0]
@@ -64,3 +64,4 @@ class AutoMiny():
         steerMsg.header.frame_id = "base_link"
         steerMsg.header.stamp = rospy.Time.now()
         self.pub.publish(steerMsg)
+"""

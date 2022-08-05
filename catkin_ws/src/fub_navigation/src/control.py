@@ -3,7 +3,6 @@ import math
 import numpy as np
 import rospkg
 import rospy
-from autominy_msgs.msg import NormalizedSteeringCommand, SpeedCommand
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan, PointCloud
 from tf.transformations import euler_from_quaternion
