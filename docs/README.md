@@ -13,12 +13,7 @@ I could install scipy for python2 and python3. I recommend scipy for linear assi
 Use ground station for tracking. 
 
 ### Keep trying pyhon2
-To install cv2-contrib. 
-However, you may damage OS again...
-
-### Migrate to python3
-Replace filterpy with custom Kalman-Filter. 
-However, you will have to regularly source tf2_ros...
+Scipy and openCV shall be installed from source.
  
 
 
@@ -32,8 +27,5 @@ pip install filterpy
 ```
 
 #### cv2 module has no attribute named aruco
-cv2.aruco comes from opencv-contrib. To install it, try:
-```
-pip install opencv-contrib-python
-```
-Before building, you could will also need to install packages that numpy and scipy depend on
+Build source of openCV 4.5.0 for jetson nano with cuda enabled as described in: https://qengineering.eu/install-opencv-4.5-on-jetson-nano.html
+
