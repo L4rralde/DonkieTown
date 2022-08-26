@@ -117,6 +117,7 @@ class EgoPose:
 		try:
 			trans = self.tfBuffer.lookup_transform("ref_mark_"+str(ref_mark),self.c_frame,rospy.Time())
 		except: 
+			print("Error: Could not compute relative pose from ref marker to self mobile marker")
 			return
 		#trans = self.tfBuffer.lookup_transform(self.c_frame,"ref_mark_"+str(ref_mark),rospy.Time())
 		(xo,yo,tho) = marks_offset[str(ref_mark)] #Add reference mark pose offset. 
@@ -137,6 +138,7 @@ class EgoPose:
 		try:
 			self.posePub.publish(self.pose_msg) #Publish ego mark pose. 
 		except:
+			print("Error: Could not publish self pose message")
 			pass
 
 class ego_pose_node:
@@ -177,9 +179,10 @@ class ego_pose_node:
 		#get and broadcast ego mark pose 
 		corner = np.reshape(mark_corners,(1,4,2)).astype("float32")
 		try:
-			(rvec,tvec) = cv2.aruco.estimatePoseSingleMarkers([corner],
-				self.markerLen,self.cam_model.mat,self.cam_model.dist)
+			rvec,tvec,_ = cv2.aruco.estimatePoseSingleMarkers([corner],
+									self.markerLen,self.cam_model.mat,self.cam_model.dist)
 		except: 
+			print("Error: Could not estimate self marker pose")
 			return	
 		self.physFrame.update_from_rotvec(rvec[0,0],tvec[0,0])
 		self.physFrame.broadcast() #Broadcast relative ego mark pose. 
