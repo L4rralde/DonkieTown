@@ -9,18 +9,18 @@ def quaternion_from_vector(rvec):
 	if rvec.ndim not in [1, 2] or rvec.shape[len(rvec.shape)-1] != 3:
             raise ValueError("Expected `rot_vec` to have shape (3,) "
                              "or (N, 3), got {}".format(rvec.shape))
- 	angle = np.linalg.norm(rvec)
- 	if angle <= 1e-3: 
- 		angle2 = angle*angle 
- 		scale = 0.5-angle2/48+angle2*angle2/3840
- 	else: 
- 		scale = np.sin(angle/2)/angle
+	angle = np.linalg.norm(rvec)
+	if angle <= 1e-3:
+		angle2 = angle*angle
+		scale = 0.5-angle2/48+angle2*angle2/3840
+	else:
+		scale = np.sin(angle/2)/angle
 	quat = np.zeros(4)
- 	quat[0] = scale*rvec[0]
- 	quat[1] = scale*rvec[1]
- 	quat[2] = scale*rvec[2]
- 	quat[3] = np.cos(angle/2)
- 	return quat
+	quat[0] = scale*rvec[0]
+	quat[1] = scale*rvec[1]
+	quat[2] = scale*rvec[2]
+	quat[3] = np.cos(angle/2)
+	return quat
 	
 class FrameWork(object): 
 	def __init__(self,father,child): 
