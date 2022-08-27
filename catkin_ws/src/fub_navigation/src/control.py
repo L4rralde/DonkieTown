@@ -17,8 +17,6 @@ from auto_model import get_AutoModel
 #       Solution: Draw a circle. Done!
 #   -Generate 0, +-25, and +-50 lanes. 
     
-
-
 class MapConfig(object):
     def __init__(self,map_name,look_ahead='50cm'): 
         rospack = rospkg.RosPack()
@@ -27,7 +25,7 @@ class MapConfig(object):
         (h,w,l) = map_img.shape
         self.map_size_x = w  # cm
         self.map_size_y = h  # cm
-        self.resolution = 1  #More than a argument, it's a parameter to follow. 
+        self.resolution = 1  #More than an argument, it's a parameter to meet. 
 
         #Do not charge all of them 
 
@@ -50,7 +48,8 @@ class VectorfieldController(MapConfig):
         look_ahead = rospy.get_param('~look_ahead','25cm')
         super(VectorfieldController,self).__init__(map_name,look_ahead)
         #self.model_car = AutoModelMini([self.callback],model)
-        callbacks = [self.callback,self.on_obs_detection]
+        #callbacks = [self.callback,self.on_obs_detection] #Ackermann
+        callbacks = [self.ddr_callback,self.on_obs_detection] #ddr
         
         self.model_car = get_AutoModel(model,callbacks=callbacks,fake_gps=False)
         
@@ -59,10 +58,10 @@ class VectorfieldController(MapConfig):
 
         self.last_lane_change = rospy.Time.now()
         self.speed_value = rospy.get_param('~speed',0.3)
-        self.last_angle = 0.0
-        self.Kp = 4.0
-        self.Kd = 0.2
-        self.Ki = 0.000
+        #self.last_var = [0.0] #AutoMiny: Last angle
+        self.last_var = [0.0,0.0] #DDR. Last p*, last q*.
+        #self.Ks = [4.0,0.2,0.000] #PID for autominy
+        self.Ks = [4.0,1.0] #Kn1, kn2 for ddr
         self.last_time = rospy.Time.now()
         self.integral_error = 0.0
         self.listener = tf.TransformListener()
@@ -81,62 +80,56 @@ class VectorfieldController(MapConfig):
 
         #self.lidar_sub = rospy.Subscriber("/sensors/rplidar/scan", LaserScan, self.on_lidar, queue_size=1)
 
+    def ddr_callback(self,data):
+        dt = (data.header.stamp - self.last_time).to_sec()
+        # 25hz
+        if dt < 0.04:
+            return
+        self.last_time = data.header.stamp
+        self.x = data.pose.pose.position.x #Actual coord-x
+        self.y = data.pose.pose.position.y #Actual coord-y
+        orientation_q = data.pose.pose.orientation
+        orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
+        (roll, pitch, yaw) = euler_from_quaternion(orientation_list) #Actual yaw
+        delta_xd,delta_yd = get_coords_from_vf(self.x,self.y,self.resolution,self.map_size_x,self.map_size_y)
+        #eccentric point ddr controller
+        ps = delta_xd+self.x
+        qs = delta_yd+self.y
+        dps = (ps-self.last_var[0])/dt
+        dqs = (qs-self.last_var[1])/dt
+        self.last_var[0] = ps
+        self.last_var[1] = qs
+        nu1 = dps+self.Ks[0]*(delta_xd)
+        nu2 = dqs+self.Ks[1]*(delta_yd)
+        speed = np.cos(yaw)*nu1+np.sin(yaw)*nu2
+        omega = 14.2857*(-np.sin(yaw)*nu1+np.cos(yaw)*nu2) #where 14.2857 = 1/mu, mu:eccentrecity. Taking mu=0.07
+
+        self.model_car.publish_steer(omega)
+        if not self.shutdown_:
+            self.model_car.publish_speed(speed)
+
+        
     def callback(self, data):
         dt = (data.header.stamp - self.last_time).to_sec()
         # 25hz
         if dt < 0.04:
             return
-
         self.last_time = data.header.stamp
         self.x = data.pose.pose.position.x
         self.y = data.pose.pose.position.y
-        x = self.x+self.map_size_x/200.0
-        y = self.y+self.map_size_y/200.0
         orientation_q = data.pose.pose.orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
         (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
 
-        x_index_floor = int(math.floor(x * (100.0 / self.resolution)))
-        y_index_floor = int(math.floor(y * (100.0 / self.resolution)))
-
-        x_index_ceil = x_index_floor + 1
-        y_index_ceil = y_index_floor + 1
-
-        ceil_ratio_x = x * (100.0 / self.resolution) - x_index_floor
-        ceil_ratio_y = y * (100.0 / self.resolution) - y_index_floor
-
-        if x_index_floor < 0:
-            x_index_floor = 0
-        if x_index_floor > self.map_size_x / self.resolution - 1:
-            x_index_floor = self.map_size_x / self.resolution - 1
-
-        if y_index_floor < 0:
-            y_index_floor = 0
-        if y_index_floor > self.map_size_y / self.resolution - 1:
-            y_index_floor = self.map_size_y / self.resolution - 1
-
-        if x_index_ceil < 0:
-            x_index_ceil = 0
-        if x_index_ceil > self.map_size_x / self.resolution - 1:
-            x_index_ceil = self.map_size_x / self.resolution - 1
-
-        if y_index_ceil < 0:
-            y_index_ceil = 0
-        if y_index_ceil > self.map_size_y / self.resolution - 1:
-            y_index_ceil = self.map_size_y / self.resolution - 1
-
-        x3_floor, y3_floor = self.matrix[x_index_floor, y_index_floor, :]
-        x3_ceil, y3_ceil = self.matrix[x_index_ceil, y_index_ceil, :]
-        x3 = x3_floor * (1.0 - ceil_ratio_x) + x3_ceil * ceil_ratio_x
-        y3 = y3_floor * (1.0 - ceil_ratio_y) + y3_ceil * ceil_ratio_y
+        x3,y3 = get_coords_from_vf(self.x,self.y,self.resolution,self.map_size_x,self.map_size_y,self.matrix)
         f_x = np.cos(yaw) * x3 + np.sin(yaw) * y3
         f_y = -np.sin(yaw) * x3 + np.cos(yaw) * y3
 
         angle = np.arctan2(f_y, f_x)
 
         self.integral_error = self.integral_error + angle * dt
-        steering = self.Kp * angle + self.Kd * ((angle - self.last_angle) / dt) + self.Ki * self.integral_error
-        self.last_angle = angle
+        steering = self.Ks[0] * angle + self.Ks[1] * ((angle - self.last_var[0]) / dt) + self.Ks[2] * self.integral_error
+        self.last_var[0] = angle
 
         if f_x > 0:
             speed = -self.speed_value
@@ -227,8 +220,47 @@ class VectorfieldController(MapConfig):
                 self.lane_change()
                 break
 
+def get_coords_from_vf(raw_x, raw_y, resolution, map_size_x, map_size_y, matrix):
+    #To match vector field
+    x = raw_x+map_size_x/200.0
+    y = raw_y+map_size_y/200.0
+    x_index_floor = int(math.floor(x * (100.0 / resolution))) #Converting to cm
+    y_index_floor = int(math.floor(y * (100.0 / resolution)))
+
+    x_index_ceil = x_index_floor + 1
+    y_index_ceil = y_index_floor + 1
+
+    ceil_ratio_x = x * (100.0 / resolution) - x_index_floor #To check how much interpolate between floor and ceil.
+    ceil_ratio_y = y * (100.0 / resolution) - y_index_floor
+
+    if x_index_floor < 0:
+        x_index_floor = 0
+    if x_index_floor > map_size_x / resolution - 1:
+        x_index_floor = map_size_x / resolution - 1
+
+    if y_index_floor < 0:
+        y_index_floor = 0
+    if y_index_floor > map_size_y / resolution - 1:
+        y_index_floor = map_size_y / resolution - 1
+
+    if x_index_ceil < 0:
+        x_index_ceil = 0
+    if x_index_ceil > map_size_x / resolution - 1:
+        x_index_ceil = map_size_x / resolution - 1
+
+    if y_index_ceil < 0:
+        y_index_ceil = 0
+    if y_index_ceil > map_size_y / resolution - 1:
+        y_index_ceil = map_size_y / resolution - 1
+
+    vx_floor, vy_floor = matrix[x_index_floor, y_index_floor, :]
+    vx_ceil, vy_ceil = matrix[x_index_ceil, y_index_ceil, :]
+    vx = vx_floor * (1.0 - ceil_ratio_x) + vx_ceil * ceil_ratio_x
+    vy = vy_floor * (1.0 - ceil_ratio_y) + vy_ceil * ceil_ratio_y
+    return (vx,vy)
+
 def main():
-    mname = 'new_indoors'
+    mname = 'inhouse'
     try:
         VectorfieldController(map_name=mname)
         rospy.spin()
