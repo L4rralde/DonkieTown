@@ -24,8 +24,8 @@ class motor_driver_node:
 		self.motor_st.voltage = volt
 		sleep(0.01) #Increase time gap between i2c transactions.
 		try:
-			self.measures_pub.publish(motor_st)
-		except: 
+			self.measures_pub.publish(self.motor_st)
+		except:
 			pass
 	def shutdown(self):
 		print("shutdown!")
