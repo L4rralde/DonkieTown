@@ -24,9 +24,9 @@ pip install filterpy
 ## Status
  - First asinus car assembled.
  - Second in progress:
-    [x] Purchase battery.
-    [] Purchase female-to-female dupont cables and build jetson-to-pcb cables. 
-    [] Prepared motors.
+    - [x] Purchase battery.
+    - [] Purchase female-to-female dupont cables and build jetson-to-pcb cables. 
+    - [] Prepared motors.
  - Third is TODO.
 
 ## Troubleshooting
