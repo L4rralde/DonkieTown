@@ -21,4 +21,12 @@ pip install filterpy
 - Build source of openCV 4.5.0 for jetson nano with cuda enabled as described in: https://qengineering.eu/install-opencv-4.5-on-jetson-nano.html
 
 
+## Status
+ - First asinus car assembled.
+ - Second in progress:
+    [x] Purchase battery.
+    [] Purchase female-to-female dupont cables and build jetson-to-pcb cables. 
+    [] Prepared motors.
+ - Third is TODO.
+
 ## Troubleshooting
