@@ -32,14 +32,19 @@ class TalkerNListener(NetworkAgent):
 	def __init__(self,source,target):
 		super(TalkerNListener,self).__init__(source,target)
 		self.outstanding_msgs = {}
+		self.time_sum = 0.0
+		self.rx_cnt = 0
 	def callback(self,rep_msg):
 		now = rospy.Time.now()
 		if(not rep_msg.seq in self.outstanding_msgs.keys()):
 			return
 		src_msg = self.outstanding_msgs[rep_msg.seq]
 		print(rep_msg.stamp.to_sec()-src_msg.stamp.to_sec())
-		print(now.to_sec()-src_msg.stamp.to_sec())
+		delay = now.to_sec()-src_msg.stamp.to_sec() 
+		print(delay)
 		print("------------------------")
+		self.time_sum = self.time_sum+delay
+		self.rx_cnt = self.rx_cnt+1
 		del self.outstanding_msgs[rep_msg.seq]
 	def talker(self,rate):
 		count = 0
@@ -50,6 +55,8 @@ class TalkerNListener(NetworkAgent):
 			self.publisher.publish(pub_msg)
 			rate.sleep()
 			count = (count+1)%100
+		print("Average:")
+		print(self.time_sum/self.rx_cnt)
 
 def main(args):
 	rospy.init_node('latency_test',anonymous=True)
@@ -65,7 +72,7 @@ def main(args):
 	else:
 		node = TalkerNListener(node_bn+"/repeated",node_bn+"/source")
 		try:
-			node.talker(1)
+			node.talker(50)
 		except rospy.ROSInterruptException:
 			pass
 
