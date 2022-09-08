@@ -24,8 +24,8 @@ pip install filterpy
 ## Status
 ### Asinus cars
  - First asinus car assembled.
-   - [ ] Change login credentials.
-   - [ ] Set static ip.
+   - [x] Change login credentials.
+   - [x] Set static ip.
  - Second in progress:
    - [ ] Replace 310-rpm motors with 155-rpm motors.
    - [ ] Change login credentials.
