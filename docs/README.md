@@ -22,11 +22,10 @@ pip install filterpy
 
 
 ## Status
+### Asinus cars
  - First asinus car assembled.
  - Second in progress:
-    - [x] Purchase battery.
-    - [] Purchase female-to-female dupont cables and build jetson-to-pcb cables. 
-    - [] Prepared motors.
+   - [ ] Replace 310-rpm motors with 155-rpm motors.
  - Third is TODO.
 
 ## Troubleshooting
