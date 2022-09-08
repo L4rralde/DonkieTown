@@ -19,7 +19,11 @@ pip install requests
 sudo apt install ros-melodic-tf
 ```
 ## TODO
-- Create branch for upper camera
-- Build scipy for jetson nano or develop kalman filter and linear_sum_assignment algos from scratch.
-
-
+- Upper camera 1.
+   - [ ] Change credentials.
+- Upper camera 2.
+   - [ ] Change credentials.
+   - [ ] Set static ip.
+   - [ ] Build MDF board.
+   - [ ] Purchase powerbank.
+   - [ ] Enable camera.
