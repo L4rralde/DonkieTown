@@ -10,8 +10,9 @@ from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import tf
 import tf2_ros
-from tf.transformations import quaternion_from_euler, euler_from_quaternion
+from tf.transformations import quaternion_from_euler, euler_from_quaternion, euler_from_matrix
 from framework import FrameBr as fw
+from framework import axis_matrix
 from node_cfg import marks_offset
 from camera_misc import CameraModel
 from geometry_msgs.msg import PoseWithCovarianceStamped as PCS
@@ -23,14 +24,16 @@ class Marker(object):
 		self.frame = fw("map",self.tf_name)
 		self.update(stamp,corners)
 		self.upcam_id = upcam_id
+		self.relH = np.zeros((4,4))
 	def update(self,stamp,corners):
 		self.stamp = stamp
 		self.corners = corners
 	def broadcast_tf(self,rvec,tvec):
-		rvec = np.reshape(rvec,(3))
-		tvec = np.reshape(tvec,(3))
 		self.frame.update_from_rotvec(rvec,tvec)
 		self.frame.broadcast()
+	def set_relative_pose(self,rvec,tvec):
+		self.relH = axis_matrix(rvec,tvec)
+
 
 class MobileMarker(Marker):
 	def __init__(self,robot_id,upcam_id,stamp,corners):
@@ -46,8 +49,8 @@ class MobileMarker(Marker):
 										 0,0,0,1e-3,0,0,
 										 0,0,0,0,1e-3,0,
 										 0,0,0,0,0,0.03]
-		self.pose_msg.pose.pose.position.z = 0.0	
-	def get_relative_pose(self,refmark_id,lookup_transform):
+		self.pose_msg.pose.pose.position.z = 0.0
+	def update_posemsg_tf(self,refmark_id,lookup_transform):
 		father_tf = str(self.upcam_id)+"_marker_"+str(refmark_id)
 		trans = lookup_transform(father_tf,self.tf_name,rospy.Time(0))
 		(xo,yo,tho) = marks_offset[str(refmark_id)] #Add reference mark pose offset. 
@@ -65,11 +68,27 @@ class MobileMarker(Marker):
 		self.pose_msg.pose.pose.orientation.y = quat[1]
 		self.pose_msg.pose.pose.orientation.z = quat[2]
 		self.pose_msg.pose.pose.orientation.w = quat[3]
+	def update_posemsg_h(self,refmark):
+		h_abs = np.matmul(np.linalg.inv(refmark.relH),self.relH)
+		(roll,pitch,yaw) = euler_from_matrix(h_abs[0:3,0:3])
+		(xo,yo,tho) = marks_offset[str(refmark.mid)] #Add reference mark pose offset.
+		quat = quaternion_from_euler(0.0,0.0,yaw+tho)
+
+		self.pose_msg.header.stamp = self.stamp
+		self.pose_msg.pose.pose.position.x = h_abs[0,3]+xo
+		self.pose_msg.pose.pose.position.y = h_abs[1,3]+yo
+		self.pose_msg.pose.pose.orientation.x = quat[0]
+		self.pose_msg.pose.pose.orientation.y = quat[1]
+		self.pose_msg.pose.pose.orientation.z = quat[2]
+		self.pose_msg.pose.pose.orientation.w = quat[3]
+
 	def publish(self):
 		self.posePub.publish(self.pose_msg) #Publish ego mark pose. 
-		
+
 class fake_gps: 
 	def __init__(self, cam=0, arucoDict=cv2.aruco.DICT_4X4_50, cam_id=0,camera_src='internal', refids={'0'}, markerLen=0.1, paramfile='calibration.yaml'): 
+		self.metrics = Performance("Transformations")
+
 		self.bridge = CvBridge() #When using rosbag as src image
 		self.arucoDict = cv2.aruco.Dictionary_get(arucoDict) 
 		self.markerLen = markerLen #square mark lenght 
@@ -77,8 +96,9 @@ class fake_gps:
 		self.refids = refids #Set of known reference markers' ids
 		self.time = rospy.Time.now()
 		self.tfBuffer = tf2_ros.Buffer() #This and the following are used for tf transformations
-		self.listener = tf2_ros.TransformListener(self.tfBuffer) #This is recquired to import all TF transformations	
-		#topic_bn = '/sensors/global_camera_'+str(self.cam_id)
+		#self.listener = tf2_ros.TransformListener(self.tfBuffer) 
+			#This is recquired to import all TF transformations	
+			#tf broadcast will be only used for debugging purpopses
 		topic_bn = '/sensors/global_camera'
 		self.cam_model = CameraModel(paramfile=paramfile,topic=topic_bn+'/info')
 		if camera_src == 'internal': 
@@ -116,11 +136,13 @@ class fake_gps:
 						self.markerLen,self.cam_model.mat,self.cam_model.dist)
 			if id_dict in self.refids:
 				marker = Marker(id_dict,self.cam_id,stamp,corners) 
+				marker.set_relative_pose(rvec,tvec)
 				marker.broadcast_tf(rvec,tvec)
 				ref_marks[id_dict] = marker
 				continue #To next detected marker.
 			else:
 				marker = MobileMarker(id_dict,self.cam_id,stamp,corners) 
+				marker.set_relative_pose(rvec,tvec)
 				marker.broadcast_tf(rvec,tvec)
 				mob_marks[id_dict] = marker
 			#Pass if its a mobile marker.
@@ -136,7 +158,8 @@ class fake_gps:
 				return #No reference markers found, absolute pose cannob be calculated.
 			#Publish position.
 			try:
-				mm.get_relative_pose(near_rm.mid,self.tfBuffer.lookup_transform)
+				#mm.update_posemsg_tf(near_rm.mid,self.tfBuffer.lookup_transform)
+				mm.update_posemsg_h(near_rm)
 				mm.publish()
 			except:
 				print("Couldn't compute absolute pose of mobile marker"+str(mm.mid))
