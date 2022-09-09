@@ -18,7 +18,7 @@ def get_AutoModel(model, callbacks, fake_gps=False, car_id=7):
     print("Couldn't find model named: "+str(model))
 
 class AutoModelMini(): 
-    def __init__(self,callbacks,model,fake_gps=False,car_id=7):
+    def __init__(self,callbacks,model,fake_gps=False,car_id=11):
         odom_callback = callbacks[0] 
         obs_callback = callbacks[1] 
         ns = "/"+model
@@ -39,7 +39,7 @@ class AutoModelMini():
         self.pub.publish(int(steering))
 
 class AsinusCar():
-    def __init__(self,callbacks,model,fake_gps=True,car_id=5):
+    def __init__(self,callbacks,model,fake_gps=True,car_id=7):
         odom_callback = callbacks[0]
         obs_callback = callbacks[1]
         #DDR control inputs
@@ -48,7 +48,7 @@ class AsinusCar():
         #DDR dimensions
         self.R = 0.032 #wheel radius
         self.L = 0.135 #axis length
-        self.pub_speed = rospy.Publisher("/asinus_cars/"+str(car_id)+"/motors_driver, MotorsSpeed,
+        self.pub_speed = rospy.Publisher("/asinus_cars/"+str(car_id)+"/motors_driver", MotorsSpeed,
                                          queue_size=1, tcp_nodelay=True)
         self.sub_odom = rospy.Subscriber("/fake_gps/ego_pose_raw/"+str(car_id),PCS,odom_callback,queue_size=1)
         self.sub_obs = rospy.Subscriber("/sensors/obstacles",PointCloud,obs_callback, queue_size=1)
@@ -56,13 +56,21 @@ class AsinusCar():
         self.w = steering
     def publish_speed(self,speed): #DDR longitudinal speed.
         self.s = speed
+	if(speed==0):
+	    self.stop()
+	    return
         #convert (w,s) -> (ul,ur) [rpm]
         ur = (2*self.s+self.L*self.w)/(2*self.R)*(9.549296) #9.5492 from rad/s to rpm
         ul = (2*self.s-self.L*self.w)/(2*self.R)*(9.549296)
         speed_msg = MotorsSpeed()
         speed_msg.leftMotor = ul
         speed_msg.rightMotor = ur
-        self.pub_speed(speed_msg)
+        self.pub_speed.publish(speed_msg)
+    def stop(self):
+	speed_msg = MotorsSpeed()
+	speed_msg.leftMotor = 0
+	speed_msg.rightMotor = 0
+	self.pub_speed.publish(speed_msg)
 
 """
 class AutoMiny():

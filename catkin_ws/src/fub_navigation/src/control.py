@@ -27,7 +27,7 @@ class MapConfig(object):
         self.map_size_y = h  # cm
         self.resolution = 1  #More than an argument, it's a parameter to meet. 
 
-        #Do not charge all of them 
+       #Do not charge all of them 
 
         self.matrix_lane_1 = np.load(path + 'matrix'+look_ahead+'_lane2.npy')
         self.matrix_lane_2 = np.load(path + 'matrix'+look_ahead+'_lane1.npy')
@@ -42,16 +42,18 @@ class MapConfig(object):
     
 class VectorfieldController(MapConfig):
     def __init__(self,map_name):
-        rospy.init_node('VectorfieldController')
+	rospy.init_node('VectorfieldController')
         model = rospy.get_param('~model','AutoModelMini')
         self.lane = rospy.get_param('~lane',1)
         look_ahead = rospy.get_param('~look_ahead','25cm')
+	car_id = rospy.get_param('~car_id','11')
         super(VectorfieldController,self).__init__(map_name,look_ahead)
         #self.model_car = AutoModelMini([self.callback],model)
         #callbacks = [self.callback,self.on_obs_detection] #Ackermann
         callbacks = [self.ddr_callback,self.on_obs_detection] #ddr
         
-        self.model_car = get_AutoModel(model,callbacks=callbacks,fake_gps=False)
+        self.model_car = get_AutoModel(model,callbacks=callbacks,
+					fake_gps=True, car_id=car_id)
         
         self.x = 0.0
         self.y = 0.0 
@@ -61,7 +63,7 @@ class VectorfieldController(MapConfig):
         #self.last_var = [0.0] #AutoMiny: Last angle
         self.last_var = [0.0,0.0] #DDR. Last p*, last q*.
         #self.Ks = [4.0,0.2,0.000] #PID for autominy
-        self.Ks = [4.0,1.0] #Kn1, kn2 for ddr
+        self.Ks = [0.4,0.4] #Kn1, kn2 for ddr
         self.last_time = rospy.Time.now()
         self.integral_error = 0.0
         self.listener = tf.TransformListener()
@@ -91,10 +93,11 @@ class VectorfieldController(MapConfig):
         orientation_q = data.pose.pose.orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
         (roll, pitch, yaw) = euler_from_quaternion(orientation_list) #Actual yaw
-        delta_xd,delta_yd = get_coords_from_vf(self.x,self.y,self.resolution,self.map_size_x,self.map_size_y)
+        delta_xd,delta_yd = get_coords_from_vf(self.x,self.y,self.resolution,self.map_size_x,self.map_size_y,self.matrix)
         #eccentric point ddr controller
         ps = delta_xd+self.x
         qs = delta_yd+self.y
+	print(ps, qs)
         dps = (ps-self.last_var[0])/dt
         dqs = (qs-self.last_var[1])/dt
         self.last_var[0] = ps
