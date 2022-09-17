@@ -10,11 +10,18 @@ DonkieTown consists of one or more differential-drive robots called Asinus cars,
 
 - Install scipy:
 ```
+python -m pip install --upgrade pip
+python3 -m pip install --upgrade pip
 python -m pip install scipy
 ```
-- Install filterpy
+- Install filterpy with pip
 ```
 pip install filterpy
+```
+- Install filterpy from source
+```
+git clone http://github.com/rlabbe/filterpy
+python setup.py install
 ```
 - Build pylibi2c from: https://github.com/amaork/libi2c
 
